@@ -1,0 +1,14 @@
+Name: Rahul Sharma
+Email: rahul@email.com
+
+Experience:
+- Software Intern at TechCorp (2023): Worked on Python scripts for data processing
+- Freelance Web Developer (2022): Built 3 client websites using HTML and CSS
+
+Education:
+- B.Tech Computer Science, Delhi University, 2024
+
+Skills:
+- Python, JavaScript, HTML, CSS
+- Basic knowledge of AI and machine learning
+- Git, VS Code
