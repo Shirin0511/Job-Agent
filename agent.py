@@ -1,8 +1,7 @@
 import os
 from dotenv import load_dotenv
 from langchain_groq import ChatGroq
-from langchain.agents import AgentExecutor, create_react_agent
-from langchain import hub
+from langgraph.prebuilt import create_react_agent
 from langchain_core.messages import HumanMessage
 from tools import tools
 
@@ -10,38 +9,37 @@ load_dotenv()
 
 llm= ChatGroq(
     model="llama3-70b-8192",
-    temperature=0.7,
+    temperature=0,
     api_key = os.getenv("GROQ_API_KEY")
 )
 
 
-#Loading the react prompt template
-prompt = hub.pull("hwchase17/react")
+system_prompt= f"""You are a job application assistant.
+
+When given a job description, you MUST complete all 4 steps in this exact order:
+
+Step 1 - Use the read_cv tool to read the user's CV. Pass an empty string "" as input.
+Step 2 - Use the tailor_cv tool. Format input exactly as: CV: [cv text] ||| JOB: [job description]
+Step 3 - Use the write_cover_letter tool. Format input exactly as: CV: [tailored cv] ||| JOB: [job description]  
+Step 4 - Use the save_files tool. Format input exactly as: CV: [tailored cv] ||| LETTER: [cover letter]
+
+Do not stop until all 4 steps are complete and files are saved.
+Always follow the exact input format for each tool."""
 
 #Building ReAct Agent
 
 agent = create_react_agent(
-    llm= llm,
+    mdoel= llm,
     tools = tools,
-    prompt = prompt
-)
-
-#Wrapping in Agent Executor
-
-agent_executor= AgentExecutor(
-    agent= agent,
-    tools= tools,
-    verbose = True,
-    handle_parsing_errors = True,
-    max_iterations = 10
+    prompt = system_prompt
 )
 
 # Main Function
 
 def run_agent(job_desc: str):
     """
-    Takes a job description as input and runs the full ReAct agent loop.
-    The agent will read your CV, tailor it, write a cover letter, and save everything.
+    Runs the full ReAct agent loop for a given job description.
+
     """
 
     print("\n" + "="*60)
@@ -49,25 +47,11 @@ def run_agent(job_desc: str):
     print("="*60 + "\n")
 
 
-    task = f"""
-
-    You are a job application assistant. Complete the following task step by step:
-    
-    1. First, read the user's CV using the read_cv tool
-    2. Then tailor the CV for this specific job description using the tailor_cv tool
-    3. Then write a cover letter using the write_cover_letter tool
-    4. Finally save both documents using the save_files tool
-    
-    The job description is:
-    {job_desc}
-    
-    Make sure to complete ALL 4 steps. Do not stop until files are saved.
-
-    """
-
-    result = agent_executor.invoke(
+    result = agent.invoke(
         {
-            "input" : task
+            "messages" : [
+            HumanMessage(content= "Please process this job description and complete all 4 steps:\n\n{job_desc}")
+            ]
         }
     )
 
@@ -76,10 +60,47 @@ def run_agent(job_desc: str):
     print("   AGENT FINISHED")
     print("="*60 + "\n")
     
-    print("FINAL OUTPUT:")
-    print(result["output"])
+    for i, message in enumerate(result['messages']):
 
-    return result["output"]
+        type_name = type(message).__name__
+
+        print(f"Step {i+1} [{type_name}]")
+        print("-" * 40)
+
+        content = message.content
+
+        if isinstance(content, str) and content.strip():
+
+            if len(content)>600:
+                print(content[:600])
+
+            else:
+                print(content)    
+
+        elif isinstance(content,list):
+
+            for block in content:
+                if isinstance(block, dict):
+                    if block.get("type")=="text" and block.get("text","").strip():
+                        text = block["text"]
+                        print(text[:600] + "\n... [truncated] ..." if len(text) > 600 else text)
+                    elif block.get("type") =="tool_use":
+                        print(f"Calling tool: {block.get('name')}")
+                        inp = str(block.get('input',''))
+                        print(f"With input: {inp[:300]}..." if len(inp) > 300 else f"With input: {inp}")
+
+        print()
+
+        print("="*60)
+    print("   DONE — check your outputs/ folder!")
+    print("="*60 + "\n")
+    
+    last_message = result["messages"][-1]
+    
+    if hasattr(last_message, 'content') and last_message.content:
+        print("Agent's final message:")
+        print(last_message.content)  
+          
 
 
 # Entry Point
@@ -93,12 +114,17 @@ if __name__ == "__main__":
 
     while True:
 
-        line = input()
+        try: 
+            line = input()
 
-        if line.strip() == "END":
-            break
+            if line.strip() == "END":
+                break
 
-        lines.append(line)
+            lines.append(line)
+
+        except KeyboardInterrupt:
+            print("\nCancelled by user.")
+            break    
 
 
     job_desc = "\n".join(lines)
