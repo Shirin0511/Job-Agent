@@ -22,7 +22,7 @@ def read_cv(cv : str = "") -> str:
     """
 
     try:
-        with open("cv.txt","r",encoding="utf-8") as file:
+        with open("my_cv.txt","r",encoding="utf-8") as file:
             content= file.read()
             return content
         
