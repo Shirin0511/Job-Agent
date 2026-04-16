@@ -47,10 +47,10 @@ STRICT RULES:
 
 EXECUTION PLAN:
 1. Call read_cv → get cv_text
-2. Call tailor_cv(cv_text, job_description)
-3. Call draft_cover_letter(tailored_cv, job_description)
-4. Call save_file(tailored_cv, cover_letter)
-5. Call send_email(send_email)
+2. Call tailor_cv(cv_text, job_description) → returns tailored_cv
+3. Call draft_cover_letter(tailored_cv, job_description) → returns cover_letter
+4. Call save_file(tailored_cv, cover_letter) → returns file_paths
+5. Call send_email(file_paths)
 
 IMPORTANT:
 - Do NOT skip any step
@@ -68,7 +68,7 @@ FINAL ANSWER: Email sent successfully
             "content": user_input}
         ]
     },
-    config={"recursion_limit": 10}
+    config={"recursion_limit": 25}
     )
 
     final_op = response['messages'][-1].content

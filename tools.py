@@ -226,17 +226,24 @@ def send_email(file_paths: str) ->str:
 
     #Attach CV
     with open(cv_path, 'r', encoding='utf-8') as f:
-        print("CV CONTENT PREVIEW:", f.read()[:100])
-        msg.add_attachment(f.read(), maintype="application", subtype='octet-stream', filename='CV.txt')
+        content= f.read()
+        print("CV CONTENT PREVIEW:", content[:100])
+        msg.add_attachment(content.encode('utf-8'), maintype="application", subtype='octet-stream', filename='CV.txt')
 
     #Attaching cover letter
     with open(cover_letter_path, 'rb') as f:
-        msg.add_attachment(f.read(), maintype="application", subtype="octet-stream", filename="CoverLetter.txt")
+        cover_content = f.read()
+        msg.add_attachment(cover_content.encode('utf-8'), maintype="application", subtype="octet-stream", filename="CoverLetter.txt")
 
 
-    with smtplib.SMTP_SSL("smtp.gmail.com", 465) as smtp:
-        smtp.login(sender, password)
-        smtp.send_message(msg)
+    try:
+        with smtplib.SMTP_SSL("smtp.gmail.com", 465) as smtp:
+            smtp.login(sender, password)
+            smtp.send_message(msg)
+
+    except Exception as e:
+        print("EMAIL ERROR:", str(e))
+        return f"ERROR sending email: {str(e)}"        
 
     return "FINAL ANSWER: Email sent successfully with CV and cover letter."    
 
