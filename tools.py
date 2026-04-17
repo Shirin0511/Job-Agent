@@ -19,6 +19,8 @@ client = Groq(api_key=os.getenv("GROQ_API_KEY"))
 
 MODEL="llama-3.3-70b-versatile"
 
+
+
 def call_llm(prompt: str) -> str:
 
     """
@@ -45,8 +47,9 @@ def call_llm(prompt: str) -> str:
 def read_cv(cv : str = "") -> str:
     
     """
-    Reads the user's CV from the my_cv.txt file and returns it as text.
-    Use this tool first before doing anything else.
+    Reads the user's CV from my_cv.txt and returns the full text.
+    Call this SECOND, after get_company_info.
+    No input needed — pass an empty string.
     """
 
     print("Read CV called")
@@ -67,9 +70,13 @@ def read_cv(cv : str = "") -> str:
 def tailor_cv(cv_text: str, job_description: str) -> str:
 
     """
-    Takes the user's original CV and a job description as input,
-    and returns a tailored version of the CV that matches the job requirements.
-    """  
+    Rewrites the user's CV to match a specific job description.
+    Call this THIRD.
+    Inputs:
+    - cv_text: the full CV text returned by read_cv
+    - job_description: the original job description from the user
+    Returns: tailored_cv_saved
+    """
 
 
     print("Tailor Cv called")
@@ -111,9 +118,14 @@ Return a complete improved CV with sections:
 def draft_cover_letter(tailored_cv: str, job_description: str) -> str:
 
     """
-    Takes the tailored CV and job description and writes a professional cover letter.
+    Writes a professional cover letter based on the tailored CV and job description.
+    Call this FOURTH.
+    Inputs:
+    - tailored_cv: pass the string "tailored_cv_saved" here
+    - job_description: the original job description from the user
+    Returns: cover_letter_saved
     """
-
+   
     print("draft_cover_letter called")
 
 
@@ -154,7 +166,12 @@ Make it detailed and personalized.
 def save_file(cv_text: str, cover_letter: str) -> str:
 
     """
-    Saves the tailored CV and cover letter to the outputs folder as text files.
+    Saves the tailored CV and cover letter as text files in the outputs folder.
+    Call this FIFTH.
+    Inputs:
+    - cv_text: pass the string "tailored_cv_saved" here
+    - cover_letter: pass the string "cover_letter_saved" here
+    Returns: two file paths joined by | like: path1|path2
     """
     
     print("save_file called")
@@ -200,7 +217,11 @@ def save_file(cv_text: str, cover_letter: str) -> str:
 def send_email(file_paths: str) ->str:
     
     """
-    Sends the generated CV and cover letter to the recruiter via email.
+    Sends the saved CV and cover letter to the recruiter by email.
+    Call this SIXTH and LAST.
+    Input:
+    - file_paths: the EXACT string returned by save_file, formatted as path1|path2
+    Do NOT modify this string in any way before passing it in.
     """    
 
     print("send_email called")
@@ -259,10 +280,14 @@ def send_email(file_paths: str) ->str:
 def get_company_info(company_name: str) -> str:
     
     """
-    Searches the web for real information about a company using DuckDuckGo.
-    Use this for EVERY job application to get company context.
-    Input should be just the company name as a string.
+    Searches the web for real information about a company.
+    Call this FIRST before any other tool.
+    Input:
+    - company_name: extract this from the job description.
+      If no company name is found, use "Unknown Company"
+    Returns: a text summary of the company.
     """
+
 
     print("get_company_info called for company: ",company_name)
 
