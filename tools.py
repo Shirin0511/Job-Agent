@@ -257,18 +257,38 @@ def send_email(file_paths: str) ->str:
 
 @tool
 def get_company_info(company_name: str) -> str:
+    
     """
-    Fetch company information from MCP server.
+    Searches the web for real information about a company using DuckDuckGo.
+    Use this for EVERY job application to get company context.
+    Input should be just the company name as a string.
     """
+
+    print("get_company_info called for company: ",company_name)
 
     try:
 
         response = requests.post(
             "http://127.0.0.1:8000/get_company_info",
-            json={"company_name": company_name}
+            json={"company_name": company_name},
+            timeout=10
         )
 
-        return response.json()['info']
+        if response.status_code==200:
+            info = response.json().get("info","No info provided")
+            print("Info received about company", info[:200])
+            return info
+        
+        else:
+            return f"MCP server returned error {response.status_code} for {company_name}"
+        
+    except requests.exceptions.ConnectionError:
+
+        return "ERROR: MCP server is not running. Please start it with: uvicorn mcp_server:app --reload"
+
+    except requests.exceptions.Timeout:
+
+        return f"ERROR: MCP server timed out while fetching info for {company_name}"    
     
     except Exception as e:
         return f"Error fetching company info: {str(e)}"
