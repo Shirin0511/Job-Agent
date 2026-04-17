@@ -15,7 +15,9 @@ MEMORY={}
 
 client = Groq(api_key=os.getenv("GROQ_API_KEY"))
 
-MODEL = "llama-3.1-8b-instant"
+#MODEL = "llama-3.1-8b-instant"
+
+MODEL="llama-3.3-70b-versatile"
 
 def call_llm(prompt: str) -> str:
 
@@ -216,6 +218,11 @@ def send_email(file_paths: str) ->str:
     password = os.getenv('EMAIL_PASSWORD') 
     receiver = os.getenv('EMAIL_RECEIVER')
 
+
+    print("SENDER:", sender)
+    print("PASSWORD EXISTS:", bool(password))
+    print("RECEIVER:", receiver)
+
     msg = EmailMessage()
 
     msg['Subject'] = "AI/Ml Developer Application"
@@ -231,7 +238,7 @@ def send_email(file_paths: str) ->str:
         msg.add_attachment(content.encode('utf-8'), maintype="application", subtype='octet-stream', filename='CV.txt')
 
     #Attaching cover letter
-    with open(cover_letter_path, 'rb') as f:
+    with open(cover_letter_path, 'r', encoding='utf-8') as f:
         cover_content = f.read()
         msg.add_attachment(cover_content.encode('utf-8'), maintype="application", subtype="octet-stream", filename="CoverLetter.txt")
 
