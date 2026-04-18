@@ -30,6 +30,7 @@ send_email        →  Emails everything to the recruiter via Gmail
 ---
 
 ## Architecture
+```
 
 ┌─────────────────────────────────────────────────────┐
 │                     agent.py                        │
@@ -52,6 +53,7 @@ send_email        →  Emails everything to the recruiter via Gmail
 │           DuckDuckGo web search                     │
 └─────────────────────────────────────────────────────┘
 
+```
 ---
 
 ## Tech stack
@@ -70,6 +72,8 @@ send_email        →  Emails everything to the recruiter via Gmail
 
 ## Project structure
 
+```
+
 job-agent/
 ├── agent.py          ← ReAct agent — orchestrates the full pipeline
 ├── tools.py          ← All 6 tools the agent can call
@@ -79,6 +83,8 @@ job-agent/
 ├── .env              ← API keys and email config (not committed to git)
 ├── requirements.txt  ← All Python dependencies
 └── README.md
+
+```
 
 ---
 
