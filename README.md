@@ -31,24 +31,26 @@ send_email        →  Emails everything to the recruiter via Gmail
 
 ## Architecture
 
-┌─────────────────────────────────────┐
-│           agent.py                  │
-│   LangGraph ReAct Agent             │
-│   Model: Groq (Llama 3.3 70B)       │
-└──────────────┬──────────────────────┘
-│ calls tools
-┌──────────────▼──────────────────────┐
-│           tools.py                  │
-│  read_cv, tailor_cv,                │
-│  draft_cover_letter, save_file,     │
-│  send_email, get_company_info       │
-└──────────────┬──────────────────────┘
-│ HTTP POST
-┌──────────────▼──────────────────────┐
-│         mcp_server.py               │
-│   FastAPI MCP Server                │
-│   DuckDuckGo web search             │
-└─────────────────────────────────────┘
+┌─────────────────────────────────────────────────────┐
+│                     agent.py                        │
+│           LangGraph ReAct Agent                     │
+│           Model: Groq — Llama 3.3 70B               │
+└─────────────────────┬───────────────────────────────┘
+                      │  calls tools
+                      ▼
+┌─────────────────────────────────────────────────────┐
+│                     tools.py                        │
+│                                                     │
+│  read_cv  →  tailor_cv  →  draft_cover_letter       │
+│  save_file  →  send_email  →  get_company_info      │
+└─────────────────────┬───────────────────────────────┘
+                      │  HTTP POST
+                      ▼
+┌─────────────────────────────────────────────────────┐
+│                  mcp_server.py                      │
+│           FastAPI MCP Server                        │
+│           DuckDuckGo web search                     │
+└─────────────────────────────────────────────────────┘
 
 ---
 
@@ -77,7 +79,6 @@ job-agent/
 ├── .env              ← API keys and email config (not committed to git)
 ├── requirements.txt  ← All Python dependencies
 └── README.md
-
 
 ---
 
@@ -164,20 +165,23 @@ and press Enter. The agent will handle everything from there.
 
 ## Example output
 
-Enter job description (or 'exit'): We are looking for a Python Developer...
-END
-get_company_info called for company: Google
-Info received: Google is a multinational technology company...
+Enter job description (or 'exit'): We are hiring a Python Developer at Google...
+
+get_company_info called for: Google
+Company info received: Google is a multinational technology company...
+
 Read CV called
 Tailor CV called
 draft_cover_letter called
 save_file called
-Files saved at: outputs/tailored_cv_2026-04-18.txt outputs/cover_letter_2026-04-18.txt
+Files saved at:
+  - outputs/tailored_cv_2026-04-18.txt
+  - outputs/cover_letter_2026-04-18.txt
 send_email called
 Email sent successfully!
+
 Final Output:
 FINAL ANSWER: Email sent successfully with CV and cover letter.
-
 
 ---
 
