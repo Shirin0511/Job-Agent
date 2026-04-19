@@ -19,13 +19,14 @@ Thought → Action → Observation → Thought → Action → ...
 
 The agent calls 6 tools in sequence, each doing something concrete:
 
+```
 get_company_info  →  Searches the web for real company data (via MCP server)
 read_cv           →  Reads your CV from disk
 tailor_cv         →  Rewrites your CV to match the job description
 draft_cover_letter→  Writes a personalized cover letter
 save_file         →  Saves both documents to the outputs/ folder
 send_email        →  Emails everything to the recruiter via Gmail
-
+```
 
 ---
 
