@@ -133,6 +133,7 @@ def draft_cover_letter(tailored_cv: str, job_description: str) -> str:
     job_description = job_description[:1200]
 
     cv_text = MEMORY.get("tailored_cv", "")
+    company_info = MEMORY.get("company_info","")
 
 
     prompt= f"""
@@ -146,6 +147,9 @@ Use proper format:
 
 CV:
 {cv_text}
+
+COMPANY INFORMATION:
+{company_info}
 
 JOB:
 {job_description}
@@ -302,6 +306,9 @@ def get_company_info(company_name: str) -> str:
         if response.status_code==200:
             info = response.json().get("info","No info provided")
             print("Info received about company", info[:200])
+
+            MEMORY['company_info'] = info
+
             return info
         
         else:
