@@ -2,7 +2,8 @@ import os
 from dotenv import load_dotenv
 from langchain_groq import ChatGroq
 from langgraph.prebuilt import create_react_agent
-from tools import read_cv, tailor_cv, draft_cover_letter, save_file, send_email, get_company_info
+from tools import read_cv, tailor_cv, draft_cover_letter, save_file, send_email, get_company_info, MEMORY
+from groq import BadRequestError
 
 load_dotenv()
 
@@ -22,83 +23,6 @@ agent = create_react_agent(
     model=llm,
     tools=tools
 )
-
-# Run loop
-while True:
-    user_input = input("\nEnter job description (or 'exit'): ")
-
-    if user_input.lower() == "exit":
-        break
-
-    user_input = user_input[:1500]
-
-    response = agent.invoke(
-    {
-        "messages": [
-            {
-            "role": "system",
-    "content": """
-
-    You are a job application assistant. You MUST call tools in this exact order:
-
-1. get_company_info — extract company name from job description and call this first
-2. read_cv — read the user's CV
-3. tailor_cv — tailor the CV using cv_text and job_description
-4. draft_cover_letter — write cover letter using tailored_cv and job_description
-5. save_file — save both documents, pass "tailored_cv_saved" and "cover_letter_saved"
-
-RULES:
-- Call every tool exactly once
-- Do not skip any tool
-- Do not generate text yourself
-- After save_file, respond with: FINAL ANSWER: Draft ready for review
-  followed on new lines by:
-  TAILORED_CV_PATH: <path returned by save_file>
-  COVER_LETTER_PATH: <path returned by save_file>
-    
-    """
-
-},
-            
-            {"role": "user", 
-            "content": user_input}
-        ]
-    },
-    config={"recursion_limit": 25}
-    )
-
-    final_op = response['messages'][-1].content
-
-    if "FINAL ANSWER" not in final_op:
-        print("\n[Agent did not complete the draft pipeline — not proceeding to send.]")
-        continue
-
-    cv_path, cl_path = extract_paths(final_op)
-
-    if not cv_path or cl_path:
-        print("\n[Could not extract file paths from agent output — stopping before send for safety.]")
-        continue
-
-    decision = get_human_approval(cv_path, cl_path)
-
-    if decision =='y':
-        try:
-            result = send_email(cv_path,cl_path)
-            print("Email Sent Successfully")
-            print(result)
-
-        except Exception as e:
-            print("Sending Email Failed")  
-
-    elif decision == "e":
-        print("\n[Edit-and-retry not wired up yet — for now, adjust the job description and rerun.]")
-    else:
-        print("\n[Skipped — nothing was sent.]")          
-
-
-
-    print("\nFinal Output:\n")
-    print(response["messages"][-1].content)
 
 
 def get_human_approval(cv_path, cover_letter_path):
@@ -124,7 +48,7 @@ def get_human_approval(cv_path, cover_letter_path):
 
     while True:
         decision = input("Send this application? [y]es / [n]o / [e]dit-n-retry: ")
-        if decision in ('y','r','e'):
+        if decision in ('y','n','e'):
             return decision
         print("Please type y, n or e")
 
@@ -136,10 +60,120 @@ def extract_paths(final_text):
     for line in final_text.splitlines():
         if line.startswith("TAILORED_CV_PATH:"):
             cv_path = line.split(":",1)[1].strip()
-        elif line.startwith("COVER_LETTER_PATH:"):
+        elif line.startswith("COVER_LETTER_PATH:"):
             cl_path = line.split(":",1)[1].strip()
 
     return cv_path, cl_path
+
+
+# Run loop
+while True:
+    choice = input("\nPress Enter to red job description (or 'exit'): ")
+
+    if choice.lower() == "exit":
+        break
+
+    try:
+        with open("jd.txt","r", encoding = "utf-8") as f:
+            user_input = f.read().strip()
+
+    except FileNotFoundError:
+        print("[job_description.txt not found — create it with the JD text and try again.]")
+        continue
+
+    if not user_input:
+        print("Job Description is empty")
+        continue
+
+
+
+    user_input = user_input[:1500]
+
+    #Prevent stale data from a previous job
+    MEMORY.clear()
+
+    try: 
+        response = agent.invoke(
+        {
+            "messages": [
+                {
+                "role": "system",
+        "content": """
+
+        You are a job application assistant. You MUST call tools in this exact order:
+
+    1. get_company_info — extract company name from job description and call this first
+    2. read_cv — read the user's CV
+    3. tailor_cv — tailor the CV using cv_text and job_description
+    4. draft_cover_letter — write cover letter using tailored_cv and job_description
+    5. save_file — save both documents, pass "tailored_cv_saved" and "cover_letter_saved"
+
+    RULES:
+    - Call every tool exactly once
+    - Do not skip any tool
+    - Do not generate text yourself
+    - After save_file, respond with: FINAL ANSWER: Draft ready for review
+    followed on new lines by:
+    TAILORED_CV_PATH: <path returned by save_file>
+    COVER_LETTER_PATH: <path returned by save_file>
+        
+        """
+
+    },
+                
+                {"role": "user", 
+                "content": user_input}
+            ]
+        },
+        config={"recursion_limit": 25}
+        )
+
+    except BadRequestError as e:
+        print(f"\n[Groq failed to generate a valid tool call: {e}]")
+        print("[This is a model-side formatting glitch — try again, or rephrase the job description.]")
+        continue
+
+    except Exception as e:
+        print(f"\n[Unexpected error during agent run: {e}]")
+        continue    
+
+    final_op = response['messages'][-1].content
+
+    if MEMORY.get('company_info_failed'):
+        print("\n[Company info fetch failed — pipeline halted before review. Check that mcp_server.py is running.]")
+        continue
+
+    if "FINAL ANSWER" not in final_op:
+        print("\n[Agent did not complete the draft pipeline — not proceeding to send.]")
+        continue
+
+    cv_path, cl_path = extract_paths(final_op)
+
+    if not cv_path or not cl_path:
+        print("\n[Could not extract file paths from agent output — stopping before send for safety.]")
+        continue
+
+    decision = get_human_approval(cv_path, cl_path)
+
+    if decision =='y':
+        try:
+            result = send_email(cv_path,cl_path)
+            print("Email Sent Successfully")
+            print(result)
+
+        except Exception as e:
+            print("Sending Email Failed")  
+
+    elif decision == "e":
+        print("\n[Edit-and-retry not wired up yet — for now, adjust the job description and rerun.]")
+    else:
+        print("\n[Skipped — nothing was sent.]")          
+
+
+
+    print("\nFinal Output:\n")
+    print(response["messages"][-1].content)
+
 
 
 

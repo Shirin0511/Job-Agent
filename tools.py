@@ -132,6 +132,9 @@ def draft_cover_letter(tailored_cv: str, job_description: str) -> str:
     tailored_cv = tailored_cv[:1200]
     job_description = job_description[:1200]
 
+    if MEMORY.get('company_info_failed'):
+        return "ERROR: Cannot draft the cover letter as Company info fetch failed. Fix the MCP server and re-try."
+
     cv_text = MEMORY.get("tailored_cv", "")
     company_info = MEMORY.get("company_info","")
 
@@ -217,8 +220,8 @@ def save_file(cv_text: str, cover_letter: str) -> str:
         return f"Error saving files: {str(e)}"
     
 
-@tool
-def send_email(file_paths: str) ->str:
+
+def send_email(cv_path: str, cl_path:str) ->str:
     
     """
     Sends the saved CV and cover letter to the recruiter by email.
@@ -228,16 +231,9 @@ def send_email(file_paths: str) ->str:
     Do NOT modify this string in any way before passing it in.
     """    
 
-    print("send_email called")
+    print("send_email called")    
 
-    print("RAW INPUT:", file_paths)
-
-    try:
-        cv_path, cover_letter_path = file_paths.split("|")
-    except Exception as e:
-        return f"ERROR parsing file paths: {str(e)}"
-
-    print("Parsed paths:", cv_path, cover_letter_path)
+    print("Parsed paths:", cv_path, cl_path)
 
     sender = os.getenv('EMAIL_SENDER')
     password = os.getenv('EMAIL_PASSWORD') 
@@ -263,7 +259,7 @@ def send_email(file_paths: str) ->str:
         msg.add_attachment(content.encode('utf-8'), maintype="application", subtype='octet-stream', filename='CV.txt')
 
     #Attaching cover letter
-    with open(cover_letter_path, 'r', encoding='utf-8') as f:
+    with open(cl_path, 'r', encoding='utf-8') as f:
         cover_content = f.read()
         msg.add_attachment(cover_content.encode('utf-8'), maintype="application", subtype="octet-stream", filename="CoverLetter.txt")
 
@@ -275,7 +271,7 @@ def send_email(file_paths: str) ->str:
 
     except Exception as e:
         print("EMAIL ERROR:", str(e))
-        return f"ERROR sending email: {str(e)}"        
+        raise      
 
     return "FINAL ANSWER: Email sent successfully with CV and cover letter."    
 
@@ -306,23 +302,29 @@ def get_company_info(company_name: str) -> str:
         if response.status_code==200:
             info = response.json().get("info","No info provided")
             print("Info received about company", info[:200])
-
             MEMORY['company_info'] = info
-
             return info
         
         else:
-            return f"MCP server returned error {response.status_code} for {company_name}"
+            error_msg =  f"MCP server returned error {response.status_code} for {company_name}"
+            MEMORY['company_info_failed'] = True
+            return error_msg
         
     except requests.exceptions.ConnectionError:
 
-        return "ERROR: MCP server is not running. Please start it with: uvicorn mcp_server:app --reload"
+        error_msg=  "ERROR: MCP server is not running. Please start it with: uvicorn mcp_server:app --reload"
+        MEMORY['company_info_failed'] = True
+        return error_msg
 
     except requests.exceptions.Timeout:
 
-        return f"ERROR: MCP server timed out while fetching info for {company_name}"    
+        error_msg = f"ERROR: MCP server timed out while fetching info for {company_name}" 
+        MEMORY['company_info_failed'] = True
+        return error_msg   
     
     except Exception as e:
-        return f"Error fetching company info: {str(e)}"
+        error_msg =  f"Error fetching company info: {str(e)}"
+        MEMORY['company_info_failed'] = True
+        return error_msg
 
     

@@ -1,0 +1,48 @@
+AI Engineer (2+ Years Experience)
+
+Location: Bangalore, India (Hybrid)
+Experience: 2–4 Years
+Employment Type: Full-time
+
+Job Description
+
+We are looking for an AI Engineer with 2+ years of experience in building and deploying machine learning and Generative AI solutions. You will work on developing AI applications, integrating Large Language Models (LLMs), and collaborating with cross-functional teams to deliver scalable AI products.
+
+Responsibilities
+-Develop and deploy ML and AI models.
+-Build applications using LLMs and RAG pipelines.
+-Design REST APIs using FastAPI or Flask.
+-Work with vector databases and embedding models.
+-Optimize model performance and inference.
+-Collaborate with data scientists and software engineers.
+-Maintain clean, well-documented code.
+
+
+Required Skills
+-Python
+-Machine Learning (Scikit-learn)
+-PyTorch or TensorFlow
+-FastAPI or Flask
+-SQL
+-Git
+-LangChain
+-RAG
+-Prompt Engineering
+-OpenAI or Azure OpenAI APIs
+-Vector databases (FAISS, Pinecone, ChromaDB)
+-Docker
+
+
+Preferred Skills
+-LangGraph or CrewAI
+-Azure or AWS
+-Kubernetes
+-MLflow
+-CI/CD
+
+
+
+Qualifications
+-Bachelor's degree in Computer Science, AI, or a related field.
+-2–4 years of professional experience in AI/ML development.
+-Strong problem-solving and communication skills.
