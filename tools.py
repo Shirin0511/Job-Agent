@@ -60,7 +60,7 @@ def extract_company_name(job_description: str) -> str:
     
 
 
-def read_cv(cv : str = "") -> str:
+def read_cv() -> str:
     
     """
     Reads the user's CV from my_cv.txt and returns the full text.
@@ -261,7 +261,7 @@ def send_email(cv_path: str, cl_path:str) ->str:
 
 
 
-def get_company_info(company_name: str) -> str:
+def get_company_info(company_name: str) -> tuple[str, bool]:
     
     """
     Searches the web for real information about a company.
