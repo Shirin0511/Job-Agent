@@ -7,16 +7,17 @@ from email.message import EmailMessage
 import smtplib
 import json
 import requests
+from reportlab.lib.pagesizes import letter
+from reportlab.lib.styles import getSampleStyleSheet
+from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer
+from reportlab.lib.units import inch
 
 
 load_dotenv()
 
-MEMORY={}
-
 client = Groq(api_key=os.getenv("GROQ_API_KEY"))
 
 #MODEL = "llama-3.1-8b-instant"
-
 MODEL="llama-3.3-70b-versatile"
 
 
@@ -41,14 +42,28 @@ def call_llm(prompt: str) -> str:
 
     return response.choices[0].message.content
 
-# Tool -1: Read CV
 
-@tool
+def extract_company_name(job_description: str) -> str:
+
+    prompt = f""" Extract only company name from the job description.
+
+    If no company name is present, respond with exactly: Unknown Company
+    
+    Respond with only the company name.
+
+    JOB DESCRIPTION :
+    {job_description[:1000]}"""
+
+    result = call_llm(prompt).strip()
+
+    return result if result else "Unknown Company"
+    
+
+
 def read_cv(cv : str = "") -> str:
     
     """
     Reads the user's CV from my_cv.txt and returns the full text.
-    Call this SECOND, after get_company_info.
     No input needed — pass an empty string.
     """
 
@@ -64,14 +79,10 @@ def read_cv(cv : str = "") -> str:
         return "The CV file is not found. Please send the file again and re-try"
     
 
-# Tool -2 : Tailor CV
-
-@tool
 def tailor_cv(cv_text: str, job_description: str) -> str:
 
     """
     Rewrites the user's CV to match a specific job description.
-    Call this THIRD.
     Inputs:
     - cv_text: the full CV text returned by read_cv
     - job_description: the original job description from the user
@@ -105,21 +116,13 @@ Return a complete improved CV with sections:
 
         """
 
-    output= call_llm(prompt)
-
-    MEMORY["tailored_cv"] = output
-
-    return "tailored_cv_saved"
+    return call_llm(prompt)
     
 
-# Tool - 3: Write Cover Letter
-
-@tool
-def draft_cover_letter(tailored_cv: str, job_description: str) -> str:
+def draft_cover_letter(tailored_cv: str, job_description: str, company_info : str) -> str:
 
     """
     Writes a professional cover letter based on the tailored CV and job description.
-    Call this FOURTH.
     Inputs:
     - tailored_cv: pass the string "tailored_cv_saved" here
     - job_description: the original job description from the user
@@ -132,13 +135,6 @@ def draft_cover_letter(tailored_cv: str, job_description: str) -> str:
     tailored_cv = tailored_cv[:1200]
     job_description = job_description[:1200]
 
-    if MEMORY.get('company_info_failed'):
-        return "ERROR: Cannot draft the cover letter as Company info fetch failed. Fix the MCP server and re-try."
-
-    cv_text = MEMORY.get("tailored_cv", "")
-    company_info = MEMORY.get("company_info","")
-
-
     prompt= f"""
 
         Write a strong professional cover letter.
@@ -149,7 +145,7 @@ Use proper format:
 - Closing
 
 CV:
-{cv_text}
+{tailored_cv}
 
 COMPANY INFORMATION:
 {company_info}
@@ -162,19 +158,36 @@ Make it detailed and personalized.
         """
 
 
-    output = call_llm(prompt)
-
-    MEMORY["cover_letter"] = output
-
-    return "cover_letter_saved"
-        
+    return call_llm(prompt)        
     
-@tool
-def save_file(cv_text: str, cover_letter: str) -> str:
+
+def text_to_pdf(text: str, output_path: str, title: str = None):
+    
+    doc = SimpleDocTemplate(
+        output_path, pagesize=letter,
+        topMargin=0.75 * inch, bottomMargin=0.75 * inch,
+        leftMargin=0.75 * inch, rightMargin=0.75 * inch
+    )
+    styles = getSampleStyleSheet()
+    story = []
+    if title:
+        story.append(Paragraph(title, styles['Heading1']))
+        story.append(Spacer(1, 12))
+    for line in text.split("\n"):
+        line = line.strip()
+        if not line:
+            story.append(Spacer(1, 8))
+            continue
+        safe_line = line.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+        story.append(Paragraph(safe_line, styles['Normal']))
+    doc.build(story)
+   
+
+
+def save_file(tailored_cv: str, cover_letter: str) -> tuple[str, str]:
 
     """
     Saves the tailored CV and cover letter as text files in the outputs folder.
-    Call this FIFTH.
     Inputs:
     - cv_text: pass the string "tailored_cv_saved" here
     - cover_letter: pass the string "cover_letter_saved" here
@@ -183,41 +196,17 @@ def save_file(cv_text: str, cover_letter: str) -> str:
     
     print("save_file called")
 
+    today = date.today().strftime("%Y-%m-%d")
+    base_dir = os.path.abspath("outputs")
+    os.makedirs(base_dir, exist_ok=True)
 
-    try:
+    cv_path = os.path.join(base_dir, f"tailored_cv_{today}.pdf")
+    cover_path = os.path.join(base_dir, f"cover_letter_{today}.pdf")
 
-        cv_text = MEMORY.get("tailored_cv", "")
-        cover_letter = MEMORY.get("cover_letter", "")
+    text_to_pdf(tailored_cv, cv_path, title = "Tailored CV")
+    text_to_pdf(cover_letter, cover_path, title= "Cover Letter")
 
-        if len(cv_text.strip()) < 50:
-            return "ERROR: CV content missing or too small"
-
-        if len(cover_letter.strip()) < 50:
-            return "ERROR: Cover letter content missing or too small"
-
-        today = date.today().strftime("%Y-%m-%d")
-
-
-        base_dir = os.path.abspath("outputs")
-
-        os.makedirs(base_dir, exist_ok=True)
-
-        cv_path = os.path.join(base_dir, f"tailored_cv_{today}.txt")
-        cover_path = os.path.join(base_dir, f"cover_letter_{today}.txt")
-
-        with open(cv_path, "w", encoding = "utf-8") as file:
-            file.write(cv_text)
-
-        with open(cover_path, "w", encoding="utf-8") as file:
-            file.write(cover_letter)
-
-        
-        print("Files saved at:", cv_path, cover_path)
-
-        return f"{cv_path}|{cover_path}"
-    
-    except Exception as e:
-        return f"Error saving files: {str(e)}"
+    return cv_path, cover_path
     
 
 
@@ -225,7 +214,6 @@ def send_email(cv_path: str, cl_path:str) ->str:
     
     """
     Sends the saved CV and cover letter to the recruiter by email.
-    Call this SIXTH and LAST.
     Input:
     - file_paths: the EXACT string returned by save_file, formatted as path1|path2
     Do NOT modify this string in any way before passing it in.
@@ -233,7 +221,6 @@ def send_email(cv_path: str, cl_path:str) ->str:
 
     print("send_email called")    
 
-    print("Parsed paths:", cv_path, cl_path)
 
     sender = os.getenv('EMAIL_SENDER')
     password = os.getenv('EMAIL_PASSWORD') 
@@ -253,15 +240,12 @@ def send_email(cv_path: str, cl_path:str) ->str:
     msg.set_content("Hi,\n\nPlease find my CV and cover letter attached.\n\nRegards")
 
     #Attach CV
-    with open(cv_path, 'r', encoding='utf-8') as f:
-        content= f.read()
-        print("CV CONTENT PREVIEW:", content[:100])
-        msg.add_attachment(content.encode('utf-8'), maintype="application", subtype='octet-stream', filename='CV.txt')
+    with open(cv_path, 'rb') as f:
+        msg.add_attachment(f.read(), maintype="application", subtype='pdf', filename='CV.pdf')
 
     #Attaching cover letter
-    with open(cl_path, 'r', encoding='utf-8') as f:
-        cover_content = f.read()
-        msg.add_attachment(cover_content.encode('utf-8'), maintype="application", subtype="octet-stream", filename="CoverLetter.txt")
+    with open(cl_path, 'rb') as f:
+        msg.add_attachment(f.read(), maintype="application", subtype="pdf", filename="CoverLetter.pdf")
 
 
     try:
@@ -276,20 +260,19 @@ def send_email(cv_path: str, cl_path:str) ->str:
     return "FINAL ANSWER: Email sent successfully with CV and cover letter."    
 
 
-@tool
+
 def get_company_info(company_name: str) -> str:
     
     """
     Searches the web for real information about a company.
-    Call this FIRST before any other tool.
     Input:
     - company_name: extract this from the job description.
       If no company name is found, use "Unknown Company"
     Returns: a text summary of the company.
     """
 
-
-    print("get_company_info called for company: ",company_name)
+    if not company_name or company_name.strip().lower() == "unknown company":
+        return "No company name was identified in the job description, so company research was skipped.", False
 
     try:
 
@@ -300,31 +283,26 @@ def get_company_info(company_name: str) -> str:
         )
 
         if response.status_code==200:
-            info = response.json().get("info","No info provided")
+            info = response.json().get("info","No info provided"), False
             print("Info received about company", info[:200])
-            MEMORY['company_info'] = info
             return info
         
         else:
-            error_msg =  f"MCP server returned error {response.status_code} for {company_name}"
-            MEMORY['company_info_failed'] = True
+            error_msg =  f"MCP server returned error {response.status_code} for {company_name}", True
             return error_msg
         
     except requests.exceptions.ConnectionError:
 
-        error_msg=  "ERROR: MCP server is not running. Please start it with: uvicorn mcp_server:app --reload"
-        MEMORY['company_info_failed'] = True
+        error_msg=  "ERROR: MCP server is not running. Please start it with: uvicorn mcp_server:app --reload", True
         return error_msg
 
     except requests.exceptions.Timeout:
 
-        error_msg = f"ERROR: MCP server timed out while fetching info for {company_name}" 
-        MEMORY['company_info_failed'] = True
+        error_msg = f"ERROR: MCP server timed out while fetching info for {company_name}" , True
         return error_msg   
     
     except Exception as e:
-        error_msg =  f"Error fetching company info: {str(e)}"
-        MEMORY['company_info_failed'] = True
+        error_msg =  f"Error fetching company info: {str(e)}", True
         return error_msg
 
     
